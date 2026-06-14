@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic · Tac · Toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:    #ece2c8;
+    --paper-lt: #f6efdc;
+    --ink:      #1d1a14;
+    --pink:     #ff2e63;
+    --blue:     #2440c4;
+    --shadow:   6px 6px 0 var(--ink);
+    --shadow-sm:3px 3px 0 var(--ink);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 32px 16px 56px;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(circle at 18% 22%, rgba(255,46,99,.10), transparent 42%),
+      radial-gradient(circle at 84% 78%, rgba(36,64,196,.10), transparent 42%);
+    overflow-x: hidden;
+  }
+
+  /* Riso grain overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+    opacity: .5;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---- Masthead ---- */
+  .masthead {
+    text-align: center;
+    margin-bottom: 22px;
+    line-height: .82;
+    animation: drop .6s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .masthead .kicker {
+    font-size: .72rem;
+    letter-spacing: .42em;
+    text-transform: uppercase;
+    margin: 0 0 10px 4px;
+    color: var(--ink);
+    opacity: .65;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: clamp(3.4rem, 14vw, 6rem);
+    margin: 0;
+    letter-spacing: -.02em;
+  }
+  h1 .t { color: var(--pink); display: inline-block; }
+  h1 .o { color: var(--blue); display: inline-block; }
+  h1 .dot { color: var(--ink); font-weight: 600; opacity: .4; }
+
+  /* ---- Controls row ---- */
+  .controls {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .field {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  #mode {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 11px 38px 11px 16px;
+    border: 2.5px solid var(--ink);
+    border-radius: 0;
+    background: var(--paper-lt);
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .field::after {
+    content: "▾";
+    position: absolute;
+    right: 14px;
+    pointer-events: none;
+    font-size: .8rem;
+  }
+  #mode:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+  #mode:focus-visible { outline: none; }
+
+  /* ---- Scoreboard ---- */
+  #scoreboard {
+    display: flex;
+    gap: 0;
+    margin-bottom: 26px;
+    border: 2.5px solid var(--ink);
+    box-shadow: var(--shadow);
+    background: var(--paper-lt);
+  }
+  #scoreboard .score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    min-width: 104px;
+  }
+  #scoreboard .score + .score { border-left: 2.5px solid var(--ink); }
+  #scoreboard .label {
+    font-size: .62rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    opacity: .7;
+    margin-bottom: 4px;
+    white-space: nowrap;
+  }
+  #scoreboard .value {
+    font-family: 'Fraunces', serif;
+    font-size: 2.1rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+  #scoreX { background: rgba(255,46,99,.08); }
+  #scoreO { background: rgba(36,64,196,.08); }
+  #scoreX .value { color: var(--pink); }
+  #scoreO .value { color: var(--blue); }
+  #scoreDraw .value { color: var(--ink); }
+
+  /* ---- Status ticker ---- */
+  #status {
+    font-size: .9rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    min-height: 1.4em;
+    margin-bottom: 18px;
+    padding: 6px 16px;
+    border: 2px dashed rgba(29,26,20,.45);
+    background: var(--paper-lt);
+  }
+
+  /* ---- Board ---- */
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 98px);
+    grid-template-rows: repeat(3, 98px);
+    gap: 14px;
+    padding: 16px;
+    background: var(--ink);
+    box-shadow: 10px 10px 0 rgba(29,26,20,.22);
+  }
+  .cell {
+    background: var(--paper-lt);
+    border: none;
+    border-radius: 0;
+    font-family: 'Fraunces', serif;
+    font-size: 3.4rem;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: background .12s, transform .12s;
+    animation: tile-in .4s cubic-bezier(.2,.9,.2,1) both;
+  }
+  .cell:nth-child(1){animation-delay:.02s}.cell:nth-child(2){animation-delay:.06s}
+  .cell:nth-child(3){animation-delay:.10s}.cell:nth-child(4){animation-delay:.14s}
+  .cell:nth-child(5){animation-delay:.18s}.cell:nth-child(6){animation-delay:.22s}
+  .cell:nth-child(7){animation-delay:.26s}.cell:nth-child(8){animation-delay:.30s}
+  .cell:nth-child(9){animation-delay:.34s}
+
+  .cell:hover:not(:disabled) { background: #fffaf0; transform: translateY(-2px); }
+  .cell:hover:not(:disabled)::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 2px dashed rgba(29,26,20,.25);
+  }
+  .cell:disabled { cursor: default; }
+
+  /* Stamped marks */
+  .cell.x, .cell.o { animation: stamp .28s cubic-bezier(.2,1.5,.4,1) both; }
+  .cell.x { color: var(--pink); }
+  .cell.o { color: var(--blue); }
+
+  /* Winning line — inked & inverted */
+  .cell.win { animation: pop .35s ease both; }
+  .cell.x.win { background: var(--pink); color: var(--paper-lt); }
+  .cell.o.win { background: var(--blue); color: var(--paper-lt); }
+
+  /* ---- New game button ---- */
+  #reset {
+    margin-top: 30px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: .82rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 14px 30px;
+    border: 2.5px solid var(--ink);
+    border-radius: 0;
+    background: var(--pink);
+    color: var(--paper-lt);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform .1s, box-shadow .1s, background .15s;
+  }
+  #reset:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--ink); background: #ff4778; }
+  #reset:active { transform: translate(3px,3px); box-shadow: 2px 2px 0 var(--ink); }
+
+  @keyframes drop {
+    from { opacity: 0; transform: translateY(-18px) rotate(-1.5deg); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes tile-in {
+    from { opacity: 0; transform: scale(.6) rotate(-6deg); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes stamp {
+    0%   { transform: scale(2.4) rotate(8deg); opacity: 0; }
+    60%  { transform: scale(.9) rotate(-2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); }
+  }
+  @keyframes pop {
+    0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+  <header class="masthead">
+    <p class="kicker">No. 03 · The Paper Press</p>
+    <h1><span class="t">TIC</span><span class="dot">·</span>TAC<span class="dot">·</span><span class="o">TOE</span></h1>
+  </header>
+
+  <div class="controls">
+    <div class="field">
+      <select id="mode">
+        <option value="ai">Vs Computer</option>
+        <option value="2p">2 Players</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="scoreboard">
+    <div class="score" id="scoreX">
+      <span class="label" id="labelX">X</span>
+      <span class="value" id="valueX">0</span>
+    </div>
+    <div class="score" id="scoreDraw">
+      <span class="label">Draws</span>
+      <span class="value" id="valueDraw">0</span>
+    </div>
+    <div class="score" id="scoreO">
+      <span class="label" id="labelO">O</span>
+      <span class="value" id="valueO">0</span>
+    </div>
+  </div>
+
+  <div id="status"></div>
+  <div id="board"></div>
+  <button id="reset">Reset · New Game</button>
+
+<script>
+  const board = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const resetBtn = document.getElementById('reset');
+  const modeSelect = document.getElementById('mode');
+  const valueX = document.getElementById('valueX');
+  const valueO = document.getElementById('valueO');
+  const valueDraw = document.getElementById('valueDraw');
+  const labelX = document.getElementById('labelX');
+  const labelO = document.getElementById('labelO');
+
+  const HUMAN = 'X', AI = 'O';
+
+  const scores = { X: 0, O: 0, draw: 0 };
+
+  const wins = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  let cells, state, current, over, vsComputer;
+
+  function init() {
+    vsComputer = modeSelect.value === 'ai';
+    labelX.textContent = vsComputer ? 'You (X)' : 'Player X';
+    labelO.textContent = vsComputer ? 'Computer (O)' : 'Player O';
+    state = Array(9).fill('');
+    current = 'X';
+    over = false;
+    board.innerHTML = '';
+    cells = [];
+    for (let i = 0; i < 9; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'cell';
+      btn.addEventListener('click', () => move(i));
+      board.appendChild(btn);
+      cells.push(btn);
+    }
+    setStatus();
+  }
+
+  function setStatus() {
+    if (vsComputer) {
+      statusEl.textContent = current === HUMAN ? 'Your turn' : 'Computer thinking…';
+    } else {
+      statusEl.textContent = `Player ${current}'s turn`;
+    }
+  }
+
+  // Human click handler — ignored when it's the computer's turn.
+  function move(i) {
+    if (over || state[i]) return;
+    if (vsComputer && current === AI) return;
+    play(i);
+  }
+
+  // Place the current mark and advance the game.
+  function play(i) {
+    state[i] = current;
+    cells[i].textContent = current;
+    cells[i].classList.add(current.toLowerCase());
+    cells[i].disabled = true;
+
+    const line = winningLine();
+    if (line) {
+      over = true;
+      line.forEach(idx => cells[idx].classList.add('win'));
+      statusEl.textContent = winMessage(current);
+      cells.forEach(c => c.disabled = true);
+      scores[current]++;
+      renderScores();
+      return;
+    }
+    if (state.every(v => v)) {
+      over = true;
+      statusEl.textContent = "It's a draw!";
+      scores.draw++;
+      renderScores();
+      return;
+    }
+    current = current === 'X' ? 'O' : 'X';
+    setStatus();
+
+    if (vsComputer && current === AI) {
+      setTimeout(aiMove, 300);
+    }
+  }
+
+  function renderScores() {
+    valueX.textContent = scores.X;
+    valueO.textContent = scores.O;
+    valueDraw.textContent = scores.draw;
+  }
+
+  function winMessage(player) {
+    if (!vsComputer) return `Player ${player} wins!`;
+    return player === HUMAN ? 'You win!' : 'Computer wins!';
+  }
+
+  function winningLine() {
+    return wins.find(([a,b,c]) =>
+      state[a] && state[a] === state[b] && state[a] === state[c]);
+  }
+
+  // --- AI: unbeatable minimax ---
+  function aiMove() {
+    if (over) return;
+    let bestScore = -Infinity, bestIdx;
+    for (let i = 0; i < 9; i++) {
+      if (!state[i]) {
+        state[i] = AI;
+        const score = minimax(0, false);
+        state[i] = '';
+        if (score > bestScore) { bestScore = score; bestIdx = i; }
+      }
+    }
+    play(bestIdx);
+  }
+
+  function minimax(depth, isMax) {
+    const line = winningLine();
+    if (line) return state[line[0]] === AI ? 10 - depth : depth - 10;
+    if (state.every(v => v)) return 0;
+
+    if (isMax) {
+      let best = -Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!state[i]) {
+          state[i] = AI;
+          best = Math.max(best, minimax(depth + 1, false));
+          state[i] = '';
+        }
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!state[i]) {
+          state[i] = HUMAN;
+          best = Math.min(best, minimax(depth + 1, true));
+          state[i] = '';
+        }
+      }
+      return best;
+    }
+  }
+
+  resetBtn.addEventListener('click', init);
+  modeSelect.addEventListener('change', () => {
+    scores.X = scores.O = scores.draw = 0;
+    renderScores();
+    init();
+  });
+  renderScores();
+  init();
+</script>
+</body>
+</html>
